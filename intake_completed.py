@@ -44,81 +44,20 @@ if raw_file and completed_file and astro_file:
             intake_events['hour'] = intake_events['event_time'].dt.hour
             
             # Count unique users for each astrologer by date and hour
-            user_counts = intake_events.groupby(['astrologerId', 'date', 'hour'])['user_id'].nunique().reset_index()
+            user_counts = intake_events.groupby([  'date', 'hour'])['user_id'].nunique().reset_index()
             
             # Rename columns for clarity
-            user_counts.rename(columns={'user_id': 'chat_intake_requests', 'astrologerId': '_id'}, inplace=True)
+            user_counts.rename(columns={'user_id': 'chat_intake_requests'}, inplace=True)
             
             return user_counts
-
-        def process_chat_cancels(self):
-            cancalled_events = self.raw_df[(self.raw_df['event_name'] == 'confirm_cancel_waiting_list')]
-            
-            # Convert event_time to datetime and adjust timezone
-            cancalled_events['event_time'] = pd.to_datetime(cancalled_events['event_time'], utc=True) + pd.DateOffset(hours=5, minutes=30)
-            
-            # Create date and hour columns for grouping
-            cancalled_events['date'] = cancalled_events['event_time'].dt.date
-            cancalled_events['hour'] = cancalled_events['event_time'].dt.hour
-            
-            # Count unique users for each astrologer by date and hour
-            user_counts = cancalled_events.groupby(['astrologerId', 'date', 'hour'])['user_id'].nunique().reset_index()
-            
-            # Rename columns for clarity
-            user_counts.rename(columns={'user_id': 'cancelled_requests', 'astrologerId': '_id'}, inplace=True)
-            
-            return user_counts
-
-        def cancellation_time(self):
-            
-            intake_events = self.raw_df[(self.raw_df['event_name'] == 'chat_intake_submit')].copy()
-            intake_events['event_time'] = pd.to_datetime(intake_events['event_time'], utc=True) + pd.DateOffset(hours=5, minutes=30)
-            intake_events['date'] = intake_events['event_time'].dt.date
-            intake_events['hour'] = intake_events['event_time'].dt.hour
-            
-            # Process chat cancels
-            cancel_events = self.raw_df[(self.raw_df['event_name'] == 'confirm_cancel_waiting_list')].copy()
-            cancel_events['event_time'] = pd.to_datetime(cancel_events['event_time'], utc=True) + pd.DateOffset(hours=5, minutes=30)
-            cancel_events['date'] = cancel_events['event_time'].dt.date
-            cancel_events['hour'] = cancel_events['event_time'].dt.hour
-            
-            # Merge intake and cancel events on user_id and astrologerId
-            merged_events = pd.merge(intake_events, cancel_events, on=['user_id', 'astrologerId'], suffixes=('_intake', '_cancel'))
-            
-            # Calculate the time difference between intake and cancel events
-            merged_events['time_diff'] = (merged_events['event_time_cancel'] - merged_events['event_time_intake']).dt.total_seconds() / 60.0  # difference in minutes
-            
-            # Group by astrologerId, date, and hour and calculate average time difference
-            avg_time_diff = merged_events.groupby(['astrologerId', 'date_intake', 'hour_intake'])['time_diff'].mean().reset_index()
-            
-            # Rename columns for clarity
-            avg_time_diff.rename(columns={
-                'astrologerId': '_id',
-                'date_intake': 'date',
-                'hour_intake': 'hour',
-                'time_diff': 'avg_time_diff_minutes'
-            }, inplace=True)
-            
-            return avg_time_diff
-
-        def process_chat_accepted_events(self):
-            intake_events = self.raw_df[self.raw_df['event_name'] == 'chat_intake_submit']
-            valid_user_ids = intake_events['user_id'].unique()
-            accept_events = self.raw_df[(self.raw_df['event_name'] == 'accept_chat') & (self.raw_df['paid'] == 0) & (self.raw_df['clientId'].isin(valid_user_ids))]
-            accept_events['event_time'] = pd.to_datetime(accept_events['event_time'], utc=True) + pd.DateOffset(hours=5, minutes=30)
-            accept_events['date'] = accept_events['event_time'].dt.date
-            accept_events['hour'] = accept_events['event_time'].dt.hour
-            accept_counts = accept_events.groupby(['user_id', 'date', 'hour'])['clientId'].nunique().reset_index()
-            accept_counts.rename(columns={'clientId': 'chat_accepted', 'user_id': '_id'}, inplace=True)
-            return accept_counts
 
         def process_chat_completed_events(self):
             completed_events = self.completed_df[(self.completed_df['status'] == 'COMPLETED') & (self.completed_df['type'].isin(['FREE', 'PAID']))]
             completed_events['createdAt'] = pd.to_datetime(completed_events['createdAt'], utc=True)
             completed_events['date'] = completed_events['createdAt'].dt.date
             completed_events['hour'] = completed_events['createdAt'].dt.hour
-            completed_counts = completed_events.groupby(['astrologerId', 'date', 'hour'])['userId'].nunique().reset_index()
-            completed_counts.rename(columns={'userId': 'chat_completed', 'astrologerId': '_id'}, inplace=True)
+            completed_counts = completed_events.groupby([  'date', 'hour'])['userId'].nunique().reset_index()
+            completed_counts.rename(columns={'userId': 'chat_completed'}, inplace=True)
             return completed_counts
 
         def process_paid_chat_completed_events(self):
@@ -126,13 +65,13 @@ if raw_file and completed_file and astro_file:
             paid_events['createdAt'] = pd.to_datetime(paid_events['createdAt'], utc=True)
             paid_events['date'] = paid_events['createdAt'].dt.date
             paid_events['hour'] = paid_events['createdAt'].dt.hour
-            paid_counts = paid_events.groupby(['astrologerId', 'date', 'hour'])['userId'].nunique().reset_index()
-            paid_counts.rename(columns={'userId': 'paid_chats_completed', 'astrologerId': '_id'}, inplace=True)
+            paid_counts = paid_events.groupby([  'date', 'hour'])['userId'].nunique().reset_index()
+            paid_counts.rename(columns={'userId': 'paid_chats_completed'}, inplace=True)
             return paid_counts
 
         def merge_with_astro_data(self, final_data):
             merged_data = pd.merge(final_data, self.astro_df, on='_id', how='left')
-            columns = ['_id', 'name', 'type', 'date', 'hour', 'chat_intake_requests', 'chat_accepted', 'chat_completed', 'paid_chats_completed']
+            columns = ['date', 'hour', 'chat_intake_requests','chat_completed', 'paid_chats_completed']
             return merged_data[columns]
 
     # Read CSV files
@@ -154,11 +93,8 @@ if raw_file and completed_file and astro_file:
 
     # Combine results
     final_results = intake_data
-    final_results = pd.merge(final_results, accepted_data, on=['_id', 'date', 'hour'], how='outer')
     final_results = pd.merge(final_results, completed_data, on=['_id', 'date', 'hour'], how='outer')
     final_results = pd.merge(final_results, paid_completed_data, on=['_id', 'date', 'hour'], how='outer')
-    final_results = pd.merge(final_results, cancelled, on=['_id', 'date', 'hour'], how='outer')
-    final_results = pd.merge(final_results, cancel_time, on=['_id', 'date', 'hour'], how='outer')
 
     # Merge with astro data and display final data
     merged_data = processor.merge_with_astro_data(final_results)
